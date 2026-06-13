@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mdnote Premium • Offline</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121212;
+      --panel: #1a1a1a;
+      --panel-soft: #242426;
+      --cream: #f3ead8;
+      --muted: #949496;
+      --text: #e0e0e0;
+      --accent: #ff845f;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.055), transparent 32rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", Times, serif;
+    }
+
+    body.modal-open { overflow: hidden; }
+
+    .app-shell {
+      min-height: 100vh;
+      padding: clamp(1.25rem, 4vw, 2.5rem) clamp(0.8rem, 3vw, 1.35rem);
+      transition: filter 220ms ease, opacity 220ms ease;
+    }
+
+    .app-shell.locked {
+      filter: blur(5px);
+      opacity: 0.44;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .status-pill {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(36, 36, 38, 0.9);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.24);
+      color: #d2bda5;
+      letter-spacing: 0.03em;
+    }
+
+    .motivation-line {
+      max-width: 44rem;
+      min-height: 1.7rem;
+      color: rgba(243, 234, 216, 0.76);
+      font-size: clamp(1rem, 2vw, 1.22rem);
+      font-style: italic;
+      letter-spacing: 0.01em;
+    }
+
+    .hello-title {
+      color: var(--cream);
+      font-size: clamp(2.7rem, 7.2vw, 4.9rem);
+      line-height: 0.95;
+      letter-spacing: -0.06em;
+      text-shadow: 0 12px 44px rgba(0, 0, 0, 0.25);
+    }
+
+    .hello-star {
+      color: var(--accent);
+      display: inline-block;
+      margin-right: 0.45rem;
+      transform: translateY(-0.12em) rotate(-9deg);
+    }
+
+    .note-panel {
+      background: var(--panel);
+      border-radius: 1.05rem;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.26);
+      min-height: min(62vh, 34rem);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: min(49vh, 27rem);
+      resize: vertical;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      caret-color: var(--cream);
+      font-family: inherit;
+      font-size: clamp(1.12rem, 2.6vw, 1.35rem);
+      line-height: 1.68;
+    }
+
+    textarea::placeholder { color: rgba(224, 224, 224, 0.36); }
+
+    .tool-btn, .font-pill {
+      min-width: 2.18rem;
+      height: 2.18rem;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--panel-soft);
+      color: #ded8cc;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, color 160ms ease;
+      user-select: none;
+    }
+
+    .tool-btn:hover, .font-pill:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.25);
+      background: #2b2b2e;
+      color: #fff7e8;
+    }
+
+    .tool-btn:focus-visible, .font-pill:focus-visible, .modal-card button:focus-visible, .modal-card input:focus-visible {
+      outline: 2px solid rgba(255, 132, 95, 0.72);
+      outline-offset: 3px;
+    }
+
+    .danger-btn { border-color: rgba(255, 132, 95, 0.58); color: #ffc0ab; }
+    .danger-btn:hover { background: rgba(255, 132, 95, 0.12); }
+
+    .font-pill {
+      min-width: 4.9rem;
+      padding: 0 0.8rem;
+      font-family: Georgia, "Times New Roman", Times, serif;
+    }
+
+    .saved-toast {
+      opacity: 0;
+      transform: translateY(0.45rem);
+      transition: opacity 220ms ease, transform 220ms ease;
+      color: #b8d8bb;
+      pointer-events: none;
+    }
+
+    .saved-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 1rem;
+      background: rgba(18, 18, 18, 0.78);
+      backdrop-filter: blur(12px);
+    }
+
+    .modal-backdrop.hidden { display: none; }
+
+    .modal-card {
+      width: min(100%, 28rem);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 1.35rem;
+      background: linear-gradient(145deg, rgba(31, 31, 33, 0.98), rgba(20, 20, 20, 0.98));
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+    }
+
+    .modal-card input {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: #121212;
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    .modal-card input::placeholder { color: rgba(224, 224, 224, 0.38); }
+
+    .modal-card button {
+      border-radius: 999px;
+      background: var(--cream);
+      color: #151515;
+      transition: transform 160ms ease, opacity 160ms ease;
+    }
+
+    .modal-card button:hover { transform: translateY(-1px); opacity: 0.92; }
+
+    .input-error {
+      min-height: 1.25rem;
+      color: #ffb29b;
+    }
+
+    @media (max-width: 640px) {
+      .note-panel { min-height: 66vh; }
+      textarea { min-height: 52vh; }
+      .toolbar { gap: 0.42rem; }
+      .tool-btn, .font-pill { min-width: 2.05rem; height: 2.05rem; }
+      .font-pill { min-width: 4.55rem; }
+    }
+  </style>
+</head>
+<body>
+  <main id="appShell" class="app-shell flex flex-col items-center">
+    <div class="status-pill rounded-xl px-4 py-2 text-sm">Mdnote Premium · Offline</div>
+    <p id="motivationLine" class="motivation-line mt-5 text-center"></p>
+
+    <header class="w-full max-w-5xl mt-4 mb-5 text-center">
+      <h1 class="hello-title font-normal"><span class="hello-star">*</span>Hi, <span id="studentName">Guest</span></h1>
+    </header>
+
+    <section class="note-panel w-full max-w-6xl p-3 sm:p-4 flex flex-col" aria-label="Öğrenci not defteri">
+      <textarea id="noteArea" spellcheck="true" placeholder="What do you want to capture right now?" aria-label="Not yazma alanı"></textarea>
+
+      <div class="mt-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <nav class="toolbar flex flex-wrap items-center gap-2" aria-label="Not araç çubuğu">
+          <button class="tool-btn" type="button" title="Dekoratif" aria-label="Dekoratif buton">+</button>
+          <button class="tool-btn" type="button" id="headingBtn" title="Başlık ekle" aria-label="Başlık formatı uygula">H</button>
+          <button class="tool-btn" type="button" id="listBtn" title="Liste maddesi ekle" aria-label="Liste maddesi ekle">•</button>
+          <button class="tool-btn" type="button" id="codeBtn" title="Kod bloğu ekle" aria-label="Kod bloğu ekle">{</button>
+          <span class="font-pill" title="Serif font göstergesi">Serif</span>
+          <button class="tool-btn min-w-[3rem] px-3" type="button" id="downloadBtn" title="TXT indir" aria-label="Notu TXT olarak indir">TXT</button>
+          <button class="tool-btn danger-btn" type="button" id="clearBtn" title="Notu temizle" aria-label="Notu temizle">X</button>
+        </nav>
+        <div id="savedToast" class="saved-toast text-sm px-2">Saved</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="loginModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <form id="loginForm" class="modal-card p-7 sm:p-8">
+      <div class="text-center">
+        <div class="hello-star text-4xl">*</div>
+        <h2 id="modalTitle" class="mt-2 text-3xl sm:text-4xl text-[var(--cream)] tracking-[-0.04em]">Not defterine hoş geldin</h2>
+        <p class="mt-3 text-[var(--muted)]">Lütfen adınızı yazın:</p>
+      </div>
+      <label class="sr-only" for="nameInput">Adınız</label>
+      <input id="nameInput" class="mt-6 px-5 py-3 text-lg" type="text" autocomplete="name" placeholder="Örn. Ahmet Yılmaz" />
+      <p id="inputError" class="input-error mt-3 text-sm text-center" aria-live="polite"></p>
+      <button class="mt-2 w-full px-5 py-3 text-lg font-semibold" type="submit">Giriş Yap</button>
+    </form>
+  </div>
+
+  <script>
+    const motivationMessages = [
+      'Bugün küçük bir not, yarının büyük fikrine dönüşebilir.',
+      'Odaklan, yaz ve zihnindeki kalabalığı sadeleştir.',
+      'Her satır, öğrenme yolculuğunda yeni bir iz bırakır.',
+      'Sessizce ilerleyenler, güçlü sonuçlar üretir.',
+      'Aklına geleni yakala; değerli fikirler beklemeyi sevmez.',
+      'Düzenli notlar, berrak düşüncelerin en iyi dostudur.'
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    const appShell = document.getElementById('appShell');
+    const loginModal = document.getElementById('loginModal');
+    const loginForm = document.getElementById('loginForm');
+    const nameInput = document.getElementById('nameInput');
+    const inputError = document.getElementById('inputError');
+    const studentName = document.getElementById('studentName');
+    const noteArea = document.getElementById('noteArea');
+    const savedToast = document.getElementById('savedToast');
+    const motivationLine = document.getElementById('motivationLine');
+
+    let currentUser = sanitizeUser(params.get('user') || '');
+    let storageKey = '';
+
+    motivationLine.textContent = motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
+
+    function sanitizeUser(value) {
+      return value
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/ı/g, 'i')
+        .replace(/İ/g, 'I')
+        .replace(/ğ/g, 'g')
+        .replace(/Ğ/g, 'G')
+        .replace(/ü/g, 'u')
+        .replace(/Ü/g, 'U')
+        .replace(/ş/g, 's')
+        .replace(/Ş/g, 'S')
+        .replace(/ö/g, 'o')
+        .replace(/Ö/g, 'O')
+        .replace(/ç/g, 'c')
+        .replace(/Ç/g, 'C')
+        .replace(/[^a-zA-Z0-9\s_-]/g, '')
+        .replace(/[\s-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    }
+
+    function displayNameFromUser(user) {
+      return user.replace(/_/g, ' ');
+    }
+
+    function setNotebookUser(user) {
+      currentUser = user;
+      storageKey = `note_${currentUser}`;
+      studentName.textContent = displayNameFromUser(currentUser);
+      noteArea.value = localStorage.getItem(storageKey) || '';
+      document.title = `Mdnote • ${displayNameFromUser(currentUser)}`;
+      appShell.classList.remove('locked');
+      loginModal.classList.add('hidden');
+      document.body.classList.remove('modal-open');
+      noteArea.disabled = false;
+      noteArea.focus();
+    }
+
+    function showLoginModal() {
+      appShell.classList.add('locked');
+      loginModal.classList.remove('hidden');
+      document.body.classList.add('modal-open');
+      noteArea.disabled = true;
+      studentName.textContent = 'Guest';
+      requestAnimationFrame(() => nameInput.focus());
+    }
+
+    if (currentUser) {
+      if (params.get('user') !== currentUser) {
+        const cleanUrl = `${window.location.pathname}?user=${encodeURIComponent(currentUser)}`;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+      setNotebookUser(currentUser);
+    } else {
+      showLoginModal();
+    }
+
+    loginForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const cleanName = sanitizeUser(nameInput.value);
+
+      if (!cleanName) {
+        inputError.textContent = 'Lütfen geçerli bir isim yazın.';
+        nameInput.focus();
+        return;
+      }
+
+      inputError.textContent = '';
+      const newUrl = `${window.location.pathname}?user=${encodeURIComponent(cleanName)}`;
+      window.history.pushState({}, '', newUrl);
+      setNotebookUser(cleanName);
+    });
+
+    function debounce(fn, delay = 1500) {
+      let timer;
+      return (...args) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(null, args), delay);
+      };
+    }
+
+    function showSavedToast(message = 'Saved') {
+      savedToast.textContent = message;
+      savedToast.classList.add('show');
+      setTimeout(() => savedToast.classList.remove('show'), 1300);
+    }
+
+    const saveNote = debounce(() => {
+      if (!storageKey) return;
+      localStorage.setItem(storageKey, noteArea.value);
+      showSavedToast('Saved');
+    }, 1500);
+
+    noteArea.addEventListener('input', saveNote);
+
+    function wrapSelection(prefix, suffix = '') {
+      const start = noteArea.selectionStart;
+      const end = noteArea.selectionEnd;
+      const selected = noteArea.value.slice(start, end);
+      const replacement = `${prefix}${selected || ''}${suffix}`;
+      noteArea.setRangeText(replacement, start, end, 'end');
+      noteArea.focus();
+      noteArea.dispatchEvent(new Event('input'));
+    }
+
+    function formatCurrentLine(prefix) {
+      const cursor = noteArea.selectionStart;
+      const lineStart = noteArea.value.lastIndexOf('\n', cursor - 1) + 1;
+      noteArea.setRangeText(prefix, lineStart, lineStart, 'end');
+      noteArea.focus();
+      noteArea.dispatchEvent(new Event('input'));
+    }
+
+    document.getElementById('headingBtn').addEventListener('click', () => formatCurrentLine('## '));
+    document.getElementById('listBtn').addEventListener('click', () => formatCurrentLine('• '));
+    document.getElementById('codeBtn').addEventListener('click', () => wrapSelection('\n```\n', '\n```\n'));
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const blob = new Blob([noteArea.value], { type: 'text/plain;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${currentUser || 'Guest'}-notes.txt`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (confirm('Notu silmek istediğinize emin misiniz?')) {
+        noteArea.value = '';
+        if (storageKey) localStorage.removeItem(storageKey);
+        showSavedToast('Cleared');
+        noteArea.focus();
+      }
+    });
+  </script>
+</body>
+</html>
